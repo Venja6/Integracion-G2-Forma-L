@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+// Paquete lógico para organizar el código generado
+package flota.v1;
+
+// Definición del Servicio (Las "funciones" que Despachos podrá llamar)
+service ServicioFlota {
+  // Consultar un camión y su capacidad de carga disponible
+  rpc ConsultarCamion (ConsultaCamionRequest) returns (CamionResponse);
+  
+  // Listar la flota y sus rutas
+  rpc ListarFlota (ListarFlotaRequest) returns (ListaFlotaResponse);
+  
+  // Ocupar o liberar capacidad (para reflejar el despacho o su cancelación)
+  rpc ActualizarCapacidad (ActualizarCapacidadRequest) returns (ActualizarCapacidadResponse);
+}
+
+// =========================================================
+// Mensajes: Las estructuras de datos (inputs y outputs)
+// =========================================================
+
+message ConsultaCamionRequest {
+  string camion_id = 1;
+}
+
+message CamionResponse {
+  string camion_id = 1;
+  double capacidad_disponible_kg = 2;
+  repeated string rutas = 3;
+}
+
+message ListarFlotaRequest {
+  // Puede ir vacío si queremos listar todos
+}
+
+message ListaFlotaResponse {
+  repeated CamionResponse camiones = 1;
+}
+
+message ActualizarCapacidadRequest {
+  string camion_id = 1;
+  double variacion_kg = 2; // Número positivo para liberar, negativo para ocupar
+}
+
+message ActualizarCapacidadResponse {
+  bool exito = 1;
+  double nueva_capacidad_kg = 2;
+  string mensaje_error = 3;
+}
