@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: API de Sistema de Despachos - CargaSur
+  description: API REST para la gestión de clientes y órdenes de despacho logístico.
+  version: 1.0.0
+
+servers:
+  - url: /v1
+    description: Servidor principal (versión 1)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /clientes:
+    get:
+      summary: Listar clientes
+      description: Retorna una lista de todos los clientes registrados.
+      responses:
+        '200':
+          description: Lista de clientes obtenida exitosamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cliente'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+          
+    post:
+      summary: Crear un cliente
+      description: Registra un nuevo cliente en el sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteInput'
+      responses:
+        '201':
+          description: Cliente creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /clientes/{id}:
+    get:
+      summary: Consultar un cliente específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID único del cliente
+      responses:
+        '200':
+          description: Datos del cliente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /despachos:
+    get:
+      summary: Listar despachos
+      description: Retorna una lista de todas las órdenes de despacho registradas.
+      responses:
+        '200':
+          description: Lista de despachos obtenida exitosamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Despacho'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Registrar una orden de despacho
+      description: >
+        Crea un nuevo despacho. Esta operación consulta internamente al sistema de Flota 
+        vía gRPC para verificar que exista capacidad de carga disponible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DespachoInput'
+      responses:
+        '201':
+          description: Despacho registrado exitosamente (camión con capacidad).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Despacho'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Conflicto. No hay capacidad de carga disponible en el camión.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: >
+            Servicio no disponible. El sistema interno de Flota no responde o está caído.
+            (Manejo de falla de dependencia).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /despachos/{id}:
+    get:
+      summary: Consultar un despacho específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID único de la orden de despacho
+      responses:
+        '200':
+          description: Detalles del despacho.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Despacho'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Revertir una operación de despacho
+      description: >
+        Cancela una orden de despacho existente. Internamente notificará a Flota
+        para liberar la capacidad de carga del camión.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID de la orden de despacho a revertir
+      responses:
+        '204':
+          description: Despacho revertido exitosamente. No retorna contenido.
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Cliente:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "C-1001"
+        nombre:
+          type: string
+          example: "Empresa ABC"
+        email:
+          type: string
+          example: "contacto@empresaabc.cl"
+    Despacho:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "D-5001"
+        cliente_id:
+          type: string
+          example: "C-1001"
+        camion_id:
+          type: string
+          example: "CAM-05"
+        carga_kg:
+          type: number
+          example: 1500.5
+        estado:
+          type: string
+          example: "REGISTRADO"
+          
+    DespachoInput:
+      type: object
+      required:
+        - cliente_id
+        - camion_id
+        - carga_kg
+      properties:
+        cliente_id:
+          type: string
+          example: "C-1001"
+        camion_id:
+          type: string
+          example: "CAM-05"
+        carga_kg:
+          type: number
+          description: "Cantidad de carga a despachar en kilogramos"
+          example: 1500.5
+          
+    ClienteInput:
+      type: object
+      required:
+        - nombre
+        - email
+      properties:
+        nombre:
+          type: string
+          example: "Empresa ABC"
+        email:
+          type: string
+          example: "contacto@empresaabc.cl"
+
+    Error:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: "ERR_400"
+        mensaje:
+          type: string
+          example: "Los datos enviados no son válidos."
+
+  responses:
+    BadRequestError:
+      description: Petición mal formada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnauthorizedError:
+      description: No autenticado. Falla el token de seguridad.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFoundError:
+      description: El recurso solicitado no existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  
+  
