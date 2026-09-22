@@ -1,0 +1,19 @@
+import uuid
+from sqlalchemy import Column, String, Float
+from database import Base
+
+class ClienteModel(Base):
+    __tablename__ = "clientes"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    nombre = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+
+class DespachoModel(Base):
+    __tablename__ = "despachos"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    cliente_id = Column(String, nullable=False)
+    camion_id = Column(String, nullable=False)
+    carga_kg = Column(Float, nullable=False)
+    estado = Column(String, default="REGISTRADO")

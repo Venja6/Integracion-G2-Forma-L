@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: despachos_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: despachos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api_despachos:
+    build:
+      context: ./API_Despachos
+      dockerfile: Dockerfile
+    container_name: despachos_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/despachos_db
+      - PORT=8000
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
