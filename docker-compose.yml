@@ -13,6 +13,19 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  
+  db_flota:
+    image: postgres:17-alpine
+    container_name: flota_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: flota_user
+      POSTGRES_PASSWORD: flotapassword
+      POSTGRES_DB: flota_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - flota_postgres_data:/var/lib/postgresql/data
 
   api_despachos:
     build:
@@ -30,3 +43,4 @@ services:
 
 volumes:
   postgres_data:
+  flota_postgres_data:
