@@ -1,4 +1,6 @@
 grpcio>=1.84.0
 grpcio-tools>=1.84.0
+protobuf>=5.0.0
 futures>=3.0.5
 sqlalchemy>=2.0.54
+psycopg2-binary>=2.9.0

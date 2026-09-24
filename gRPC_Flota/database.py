@@ -1,8 +1,9 @@
+import os
 from sqlalchemy import create_engine, String, Float, ForeignKey
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column, relationship
 from typing import List
 
-DATABASE_URL = "postgresql+psycopg2://flota_user:flotapassword@localhost:5433/flota_db"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://flota_user:flotapassword@localhost:5433/flota_db")
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -6,10 +6,10 @@ package flota.v1;
 // Definición del Servicio (Las "funciones" que Despachos podrá llamar)
 service ServicioFlota {
   // Consultar un camión y su capacidad de carga disponible
-  rpc ConsultarCamion (ConsultaCamionRequest) returns (CamionResponse);
+  rpc ConsultarCamion (ConsultarCamionRequest) returns (ConsultarCamionResponse);
   
   // Listar la flota y sus rutas
-  rpc ListarFlota (ListarFlotaRequest) returns (ListaFlotaResponse);
+  rpc ListarFlota (ListarFlotaRequest) returns (ListarFlotaResponse);
   
   // Ocupar o liberar capacidad (para reflejar el despacho o su cancelación)
   rpc ActualizarCapacidad (ActualizarCapacidadRequest) returns (ActualizarCapacidadResponse);
@@ -19,22 +19,22 @@ service ServicioFlota {
 // Mensajes: Las estructuras de datos (inputs y outputs)
 // =========================================================
 
-message ConsultaCamionRequest {
+message ConsultarCamionRequest {
   string camion_id = 1;
 }
 
-message CamionResponse {
+message ConsultarCamionResponse {
   string camion_id = 1;
   double capacidad_disponible_kg = 2;
   repeated string rutas = 3;
+
 }
 
 message ListarFlotaRequest {
-  // Puede ir vacío si queremos listar todos
 }
 
-message ListaFlotaResponse {
-  repeated CamionResponse camiones = 1;
+message ListarFlotaResponse {
+  repeated ConsultarCamionResponse camiones = 1;
 }
 
 message ActualizarCapacidadRequest {

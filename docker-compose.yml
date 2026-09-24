@@ -40,7 +40,20 @@ services:
       - PORT=8000
     depends_on:
       - db
+  
+  grpc_flota:
+    build:
+      context: ./gRPC_Flota
+      dockerfile: Dockerfile
+    container_name: flota_grpc
+    restart: always
+    ports:
+      - "50051:50051"
+    environment:
+      - DATABASE_URL="postgresql+psycopg2://flota_user:flotapassword@localhost:5432/flota_db"
+    depends_on:
+      - db_flota
 
 volumes:
-  postgres_data:
+  despachos_postgres_data:
   flota_postgres_data:

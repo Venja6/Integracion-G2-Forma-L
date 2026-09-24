@@ -24,25 +24,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x66lota.proto\x12\x08\x66lota.v1\"*\n\x15\x43onsultaCamionRequest\x12\x11\n\tcamion_id\x18\x01 \x01(\t\"S\n\x0e\x43\x61mionResponse\x12\x11\n\tcamion_id\x18\x01 \x01(\t\x12\x1f\n\x17\x63\x61pacidad_disponible_kg\x18\x02 \x01(\x01\x12\r\n\x05rutas\x18\x03 \x03(\t\"\x14\n\x12ListarFlotaRequest\"@\n\x12ListaFlotaResponse\x12*\n\x08\x63\x61miones\x18\x01 \x03(\x0b\x32\x18.flota.v1.CamionResponse\"E\n\x1a\x41\x63tualizarCapacidadRequest\x12\x11\n\tcamion_id\x18\x01 \x01(\t\x12\x14\n\x0cvariacion_kg\x18\x02 \x01(\x01\"_\n\x1b\x41\x63tualizarCapacidadResponse\x12\r\n\x05\x65xito\x18\x01 \x01(\x08\x12\x1a\n\x12nueva_capacidad_kg\x18\x02 \x01(\x01\x12\x15\n\rmensaje_error\x18\x03 \x01(\t2\x8c\x02\n\rServicioFlota\x12L\n\x0f\x43onsultarCamion\x12\x1f.flota.v1.ConsultaCamionRequest\x1a\x18.flota.v1.CamionResponse\x12I\n\x0bListarFlota\x12\x1c.flota.v1.ListarFlotaRequest\x1a\x1c.flota.v1.ListaFlotaResponse\x12\x62\n\x13\x41\x63tualizarCapacidad\x12$.flota.v1.ActualizarCapacidadRequest\x1a%.flota.v1.ActualizarCapacidadResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x66lota.proto\x12\x08\x66lota.v1\"+\n\x16\x43onsultarCamionRequest\x12\x11\n\tcamion_id\x18\x01 \x01(\t\"\\\n\x17\x43onsultarCamionResponse\x12\x11\n\tcamion_id\x18\x01 \x01(\t\x12\x1f\n\x17\x63\x61pacidad_disponible_kg\x18\x02 \x01(\x01\x12\r\n\x05rutas\x18\x03 \x03(\t\"\x14\n\x12ListarFlotaRequest\"J\n\x13ListarFlotaResponse\x12\x33\n\x08\x63\x61miones\x18\x01 \x03(\x0b\x32!.flota.v1.ConsultarCamionResponse\"E\n\x1a\x41\x63tualizarCapacidadRequest\x12\x11\n\tcamion_id\x18\x01 \x01(\t\x12\x14\n\x0cvariacion_kg\x18\x02 \x01(\x01\"_\n\x1b\x41\x63tualizarCapacidadResponse\x12\r\n\x05\x65xito\x18\x01 \x01(\x08\x12\x1a\n\x12nueva_capacidad_kg\x18\x02 \x01(\x01\x12\x15\n\rmensaje_error\x18\x03 \x01(\t2\x97\x02\n\rServicioFlota\x12V\n\x0f\x43onsultarCamion\x12 .flota.v1.ConsultarCamionRequest\x1a!.flota.v1.ConsultarCamionResponse\x12J\n\x0bListarFlota\x12\x1c.flota.v1.ListarFlotaRequest\x1a\x1d.flota.v1.ListarFlotaResponse\x12\x62\n\x13\x41\x63tualizarCapacidad\x12$.flota.v1.ActualizarCapacidadRequest\x1a%.flota.v1.ActualizarCapacidadResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'flota_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CONSULTACAMIONREQUEST']._serialized_start=25
-  _globals['_CONSULTACAMIONREQUEST']._serialized_end=67
-  _globals['_CAMIONRESPONSE']._serialized_start=69
-  _globals['_CAMIONRESPONSE']._serialized_end=152
-  _globals['_LISTARFLOTAREQUEST']._serialized_start=154
-  _globals['_LISTARFLOTAREQUEST']._serialized_end=174
-  _globals['_LISTAFLOTARESPONSE']._serialized_start=176
-  _globals['_LISTAFLOTARESPONSE']._serialized_end=240
-  _globals['_ACTUALIZARCAPACIDADREQUEST']._serialized_start=242
-  _globals['_ACTUALIZARCAPACIDADREQUEST']._serialized_end=311
-  _globals['_ACTUALIZARCAPACIDADRESPONSE']._serialized_start=313
-  _globals['_ACTUALIZARCAPACIDADRESPONSE']._serialized_end=408
-  _globals['_SERVICIOFLOTA']._serialized_start=411
-  _globals['_SERVICIOFLOTA']._serialized_end=679
+  _globals['_CONSULTARCAMIONREQUEST']._serialized_start=25
+  _globals['_CONSULTARCAMIONREQUEST']._serialized_end=68
+  _globals['_CONSULTARCAMIONRESPONSE']._serialized_start=70
+  _globals['_CONSULTARCAMIONRESPONSE']._serialized_end=162
+  _globals['_LISTARFLOTAREQUEST']._serialized_start=164
+  _globals['_LISTARFLOTAREQUEST']._serialized_end=184
+  _globals['_LISTARFLOTARESPONSE']._serialized_start=186
+  _globals['_LISTARFLOTARESPONSE']._serialized_end=260
+  _globals['_ACTUALIZARCAPACIDADREQUEST']._serialized_start=262
+  _globals['_ACTUALIZARCAPACIDADREQUEST']._serialized_end=331
+  _globals['_ACTUALIZARCAPACIDADRESPONSE']._serialized_start=333
+  _globals['_ACTUALIZARCAPACIDADRESPONSE']._serialized_end=428
+  _globals['_SERVICIOFLOTA']._serialized_start=431
+  _globals['_SERVICIOFLOTA']._serialized_end=710
 # @@protoc_insertion_point(module_scope)

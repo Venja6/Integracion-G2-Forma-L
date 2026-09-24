@@ -37,13 +37,13 @@ class ServicioFlotaStub:
         """
         self.ConsultarCamion = channel.unary_unary(
                 '/flota.v1.ServicioFlota/ConsultarCamion',
-                request_serializer=flota__pb2.ConsultaCamionRequest.SerializeToString,
-                response_deserializer=flota__pb2.CamionResponse.FromString,
+                request_serializer=flota__pb2.ConsultarCamionRequest.SerializeToString,
+                response_deserializer=flota__pb2.ConsultarCamionResponse.FromString,
                 _registered_method=True)
         self.ListarFlota = channel.unary_unary(
                 '/flota.v1.ServicioFlota/ListarFlota',
                 request_serializer=flota__pb2.ListarFlotaRequest.SerializeToString,
-                response_deserializer=flota__pb2.ListaFlotaResponse.FromString,
+                response_deserializer=flota__pb2.ListarFlotaResponse.FromString,
                 _registered_method=True)
         self.ActualizarCapacidad = channel.unary_unary(
                 '/flota.v1.ServicioFlota/ActualizarCapacidad',
@@ -82,13 +82,13 @@ def add_ServicioFlotaServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ConsultarCamion': grpc.unary_unary_rpc_method_handler(
                     servicer.ConsultarCamion,
-                    request_deserializer=flota__pb2.ConsultaCamionRequest.FromString,
-                    response_serializer=flota__pb2.CamionResponse.SerializeToString,
+                    request_deserializer=flota__pb2.ConsultarCamionRequest.FromString,
+                    response_serializer=flota__pb2.ConsultarCamionResponse.SerializeToString,
             ),
             'ListarFlota': grpc.unary_unary_rpc_method_handler(
                     servicer.ListarFlota,
                     request_deserializer=flota__pb2.ListarFlotaRequest.FromString,
-                    response_serializer=flota__pb2.ListaFlotaResponse.SerializeToString,
+                    response_serializer=flota__pb2.ListarFlotaResponse.SerializeToString,
             ),
             'ActualizarCapacidad': grpc.unary_unary_rpc_method_handler(
                     servicer.ActualizarCapacidad,
@@ -122,8 +122,8 @@ class ServicioFlota:
             request,
             target,
             '/flota.v1.ServicioFlota/ConsultarCamion',
-            flota__pb2.ConsultaCamionRequest.SerializeToString,
-            flota__pb2.CamionResponse.FromString,
+            flota__pb2.ConsultarCamionRequest.SerializeToString,
+            flota__pb2.ConsultarCamionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -150,7 +150,7 @@ class ServicioFlota:
             target,
             '/flota.v1.ServicioFlota/ListarFlota',
             flota__pb2.ListarFlotaRequest.SerializeToString,
-            flota__pb2.ListaFlotaResponse.FromString,
+            flota__pb2.ListarFlotaResponse.FromString,
             options,
             channel_credentials,
             insecure,
