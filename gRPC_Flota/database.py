@@ -34,8 +34,31 @@ class RutaCamion(Base):
     camion: Mapped["Camion"] = relationship(back_populates="rutas")
 
 
+CAMIONES_INICIALES = [
+    ("CAM-01", 10000.0, ["Concepcion - Santiago"]),
+    ("CAM-02", 8000.0, ["Concepcion - Temuco", "Temuco - Puerto Montt"]),
+    ("CAM-03", 12000.0, ["Santiago - Valparaiso"]),
+    ("CAM-04", 5000.0, ["Concepcion - Chillan"]),
+    ("CAM-05", 3000.0, ["Los Angeles - Concepcion"]),
+]
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    seed_db()
+
+def seed_db():
+    # Solo carga los camiones iniciales si la tabla esta vacia, asi no se duplican al reiniciar
+    with SessionLocal() as db:
+        if db.query(Camion).first() is not None:
+            return
+        for camion_id, capacidad, rutas in CAMIONES_INICIALES:
+            db.add(Camion(
+                camion_id=camion_id,
+                capacidad_total_kg=capacidad,
+                capacidad_disponible_kg=capacidad,
+                rutas=[RutaCamion(nombre_ruta=r) for r in rutas]
+            ))
+        db.commit()
 
 def get_db():
     db = SessionLocal()

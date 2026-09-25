@@ -152,9 +152,23 @@ paths:
           description: ID de la orden de despacho a revertir
       responses:
         '204':
-          description: Despacho revertido exitosamente. No retorna contenido.
+          description: >
+            Despacho revertido exitosamente (estado CANCELADO) y capacidad liberada en Flota.
+            Es idempotente: revertir un despacho ya cancelado también retorna 204.
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Flota rechazó la liberación de capacidad por inconsistencia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: El sistema interno de Flota no responde o está caído.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:

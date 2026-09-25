@@ -1,5 +1,6 @@
 from concurrent import futures
 import grpc
+from sqlalchemy.orm import lazyload
 import flota_pb2
 import flota_pb2_grpc
 from database import init_db, SessionLocal, Camion, RutaCamion
@@ -9,6 +10,8 @@ class FlotaService(flota_pb2_grpc.ServicioFlotaServicer):
     def ConsultarCamion(self, request, context):
         with SessionLocal() as db:
             camion = db.query(Camion).filter(Camion.camion_id == request.camion_id).first()
+            if not camion:
+                context.abort(grpc.StatusCode.NOT_FOUND, f"Camión {request.camion_id} no encontrado")
 
             return flota_pb2.ConsultarCamionResponse(
                 camion_id=camion.camion_id,
@@ -32,7 +35,14 @@ class FlotaService(flota_pb2_grpc.ServicioFlotaServicer):
 
     def ActualizarCapacidad(self, request, context):
         with SessionLocal() as db:
-            camion = db.query(Camion).filter(Camion.camion_id == request.camion_id).with_for_update().first()
+            # Usamos lazyload para que no haga LEFT JOIN con rutas, porque PostgreSQL no deja usar FOR UPDATE con un outer join
+            camion = (
+                db.query(Camion)
+                .options(lazyload(Camion.rutas))
+                .filter(Camion.camion_id == request.camion_id)
+                .with_for_update()
+                .first()
+            )
             if not camion:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details(f"Camión {request.camion_id} no encontrado")
