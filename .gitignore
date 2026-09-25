@@ -1,8 +1,12 @@
 
 venv
 
+# Variables de entorno locales, la configuracion para Docker esta en docker-compose.yml
+.env
+
 # Archivos que se generan solos al hacer el build en Docker
 API_Despachos/flota_pb2*.py
+gRPC_Flota/flota_pb2*.py
 API_Despachos/schemas_generated.py
 __pycache__/
 # Notas internas para la defensa

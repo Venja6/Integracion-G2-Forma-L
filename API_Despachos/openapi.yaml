@@ -34,6 +34,8 @@ paths:
                 $ref: '#/components/schemas/Token'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /clientes:
     get:
@@ -67,12 +69,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cliente'
-        '400':
-          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Ya existe un cliente con ese email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /clientes/{id}:
     get:
@@ -142,6 +150,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '503':
           description: >
             Servicio no disponible. El sistema interno de Flota no responde o está caído.
@@ -266,7 +276,9 @@ components:
           example: "CAM-05"
         carga_kg:
           type: number
-          description: "Cantidad de carga a despachar en kilogramos"
+          exclusiveMinimum: true
+          minimum: 0
+          description: "Cantidad de carga a despachar en kilogramos, debe ser mayor que 0"
           example: 1500.5
           
     ClienteInput:
@@ -277,9 +289,11 @@ components:
       properties:
         nombre:
           type: string
+          minLength: 1
           example: "Empresa ABC"
         email:
           type: string
+          format: email
           example: "contacto@empresaabc.cl"
 
     LoginInput:
@@ -338,6 +352,12 @@ components:
             $ref: '#/components/schemas/Error'
     ForbiddenError:
       description: Autenticado, pero el rol no tiene permiso para esta operación (solo el rol operador puede modificar).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: El cuerpo o los parámetros no cumplen el contrato (tipo incorrecto, campo faltante, carga no positiva, email inválido).
       content:
         application/json:
           schema:

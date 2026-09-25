@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+flota_pb2*.py

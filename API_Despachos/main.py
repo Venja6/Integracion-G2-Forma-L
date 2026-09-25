@@ -7,6 +7,7 @@ from database import engine, Base, SessionLocal
 from models import UsuarioModel
 from routers import auth as auth_router, clientes, despachos
 from auth import hashear_password, ROL_OPERADOR, ROL_CONSULTA
+from errores import registrar_manejadores
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,6 +42,8 @@ app = FastAPI(
     title="API de Sistema de Despachos - CargaSur",
     version="1.0.0"
 )
+
+registrar_manejadores(app)
 
 app.include_router(auth_router.router)
 app.include_router(clientes.router)

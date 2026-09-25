@@ -12,13 +12,13 @@ router = APIRouter(prefix="/v1/clientes", tags=["Clientes"])
 def listar_clientes(db: Session = Depends(get_db), usuario: dict = Depends(usuario_actual)):
     return db.query(ClienteModel).all()
 
-@router.post("", response_model=Cliente, status_code=status.HTTP_201_CREATED, responses={400: {"model": Error}, 401: {"model": Error}, 403: {"model": Error}})
+@router.post("", response_model=Cliente, status_code=status.HTTP_201_CREATED, responses={401: {"model": Error}, 403: {"model": Error}, 409: {"model": Error}, 422: {"model": Error}})
 def crear_cliente(cliente_in: ClienteInput, db: Session = Depends(get_db), usuario: dict = Depends(requiere_operador)):
     cliente_existente = db.query(ClienteModel).filter(ClienteModel.email == cliente_in.email).first()
     if cliente_existente:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"codigo": "ERR_400", "mensaje": "El email ya se encuentra registrado."}
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"codigo": "ERR_409", "mensaje": "El email ya se encuentra registrado."}
         )
     
     nuevo_cliente = ClienteModel(nombre=cliente_in.nombre, email=cliente_in.email)

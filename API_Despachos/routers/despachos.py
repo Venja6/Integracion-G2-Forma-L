@@ -34,12 +34,6 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
             detail={"codigo": "ERR_400", "mensaje": "El cliente especificado no existe."}
         )
 
-    if despacho_in.carga_kg <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"codigo": "ERR_400", "mensaje": "La carga debe ser mayor que 0 kg."}
-        )
-
     # Reservamos la capacidad directo en Flota, asi se verifica y se ocupa en una sola operacion
     # (Flota usa SELECT ... FOR UPDATE) y no pasa que dos despachos ocupen la misma capacidad al mismo tiempo
     try:
