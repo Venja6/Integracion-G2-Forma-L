@@ -6,12 +6,13 @@ y se mide el tiempo de respuesta, el codigo HTTP y las reservas huerfanas (la AP
 pero Flota igual alcanzo a reservar la capacidad).
 
 Requisitos: el sistema levantado con docker compose up y las dependencias de requirements.txt.
-Uso: python experimentos/timeout/experimento_timeout.py
+Uso: python experimentos/timeout/experimento_timeout.py [nombre_carpeta_resultados]
 """
 import csv
 import os
 import statistics
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -22,7 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
-SALIDA = Path(__file__).resolve().parent / "resultados"
+# Cada corrida se guarda en su carpeta, por ejemplo sin_mitigacion y con_mitigacion, para poder compararlas
+SALIDA = Path(__file__).resolve().parent / "resultados" / (sys.argv[1] if len(sys.argv) > 1 else "ultima_corrida")
 API = "http://localhost:8000"
 
 TIMEOUTS_S = [0.5, 1, 2, 30]  # 30 s se usa como "practicamente sin timeout"
@@ -196,7 +198,7 @@ def graficar(ruta, resumen):
 
 
 def main():
-    SALIDA.mkdir(exist_ok=True)
+    SALIDA.mkdir(parents=True, exist_ok=True)
     token = esperar_api()
     with httpx.Client(base_url=API, timeout=60) as cliente_http:
         cliente_id = cliente_http.post(

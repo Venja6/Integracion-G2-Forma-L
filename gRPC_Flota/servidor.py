@@ -9,6 +9,8 @@ import flota_pb2_grpc
 from database import init_db, SessionLocal, Camion, Ruta, CamionRuta
 
 
+MARGEN_COMMIT_SEGUNDOS = 0.05
+
 # Archivo que se usa solo en el experimento del timeout, si no existe no se agrega latencia
 ARCHIVO_LATENCIA = os.getenv("ARCHIVO_LATENCIA", "/tmp/latencia_ms")
 
@@ -130,6 +132,14 @@ class FlotaService(flota_pb2_grpc.ServicioFlotaServicer):
                     nueva_capacidad_kg=asignacion.capacidad_disponible_kg,
                     mensaje_error="Capacidad insuficiente en el camión para esa ruta."
                 )
+
+            # Si la API ya dejo de esperar (timeout) no guardamos el cambio, porque ella le va a responder 503 al usuario
+            # y la reserva quedaria huerfana. Se deja un margen de 50 ms para no hacer commit justo cuando vence el plazo.
+            # El experimento del timeout mostro que sin esto cada 503 por timeout dejaba capacidad ocupada en Flota
+            restante = context.time_remaining()
+            if not context.is_active() or (restante is not None and restante < MARGEN_COMMIT_SEGUNDOS):
+                db.rollback()
+                context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, "El cliente ya no espera la respuesta, no se aplica el cambio")
 
             # Se modifica capacidad en la BD
             asignacion.capacidad_disponible_kg = nueva_capacidad
