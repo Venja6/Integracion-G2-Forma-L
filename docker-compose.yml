@@ -12,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - despachos_postgres_data:/var/lib/postgresql/data
   
   db_flota:
     image: postgres:17-alpine
