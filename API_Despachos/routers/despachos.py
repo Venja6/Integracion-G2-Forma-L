@@ -4,6 +4,8 @@ from typing import List
 from database import get_db
 from models import DespachoModel, ClienteModel
 from schemas_generated import Despacho, DespachoInput, Error
+import flota_client
+from flota_client import FlotaNoDisponible, CamionNoEncontrado
 
 router = APIRouter(prefix="/v1/despachos", tags=["Despachos"])
 
@@ -29,13 +31,31 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
             detail={"codigo": "ERR_400", "mensaje": "El cliente especificado no existe."}
         )
 
-    # MOCK de disponibilidad en Flota
-    capacidad_disponible_mock = True
+    if despacho_in.carga_kg <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"codigo": "ERR_400", "mensaje": "La carga debe ser mayor que 0 kg."}
+        )
 
-    if not capacidad_disponible_mock:
+    # Se reserva la capacidad directamente en Flota: la verificación y la ocupación
+    # ocurren en una sola operación atómica (SELECT ... FOR UPDATE), sin carrera entre consultar y ocupar.
+    try:
+        respuesta = flota_client.actualizar_capacidad(despacho_in.camion_id, -despacho_in.carga_kg)
+    except CamionNoEncontrado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"codigo": "ERR_400", "mensaje": "El camión especificado no existe."}
+        )
+    except FlotaNoDisponible:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"codigo": "ERR_503", "mensaje": "El sistema de Flota no está disponible. Intente más tarde."}
+        )
+
+    if not respuesta.exito:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"codigo": "ERR_409", "mensaje": "Conflicto. No hay capacidad de carga disponible en el camión."}
+            detail={"codigo": "ERR_409", "mensaje": respuesta.mensaje_error}
         )
 
     nuevo_despacho = DespachoModel(
@@ -44,8 +64,14 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
         carga_kg=despacho_in.carga_kg,
         estado="REGISTRADO"
     )
-    db.add(nuevo_despacho)
-    db.commit()
+    try:
+        db.add(nuevo_despacho)
+        db.commit()
+    except Exception:
+        # Compensación: si no se pudo guardar el despacho, se libera la capacidad ya reservada en Flota
+        db.rollback()
+        flota_client.actualizar_capacidad(despacho_in.camion_id, despacho_in.carga_kg)
+        raise
     db.refresh(nuevo_despacho)
     return nuevo_despacho
 
@@ -59,7 +85,15 @@ def consultar_despacho(id: str, db: Session = Depends(get_db)):
         )
     return despacho
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT, responses={404: {"model": Error}})
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        404: {"model": Error},
+        409: {"model": Error},
+        503: {"model": Error}
+    }
+)
 def revertir_despacho(id: str, db: Session = Depends(get_db)):
     despacho = db.query(DespachoModel).filter(DespachoModel.id == id).first()
     if not despacho:
@@ -67,7 +101,32 @@ def revertir_despacho(id: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"codigo": "ERR_404", "mensaje": "Orden de despacho no encontrada."}
         )
-    
-    db.delete(despacho)
-    db.commit()
+
+    # DELETE idempotente: revertir un despacho ya cancelado no vuelve a liberar capacidad
+    if despacho.estado == "CANCELADO":
+        return None
+
+    try:
+        respuesta = flota_client.actualizar_capacidad(despacho.camion_id, despacho.carga_kg)
+    except (FlotaNoDisponible, CamionNoEncontrado):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"codigo": "ERR_503", "mensaje": "El sistema de Flota no está disponible. Intente más tarde."}
+        )
+
+    if not respuesta.exito:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"codigo": "ERR_409", "mensaje": respuesta.mensaje_error}
+        )
+
+    # Se conserva el registro con estado CANCELADO en lugar de borrarlo, para mantener la trazabilidad
+    despacho.estado = "CANCELADO"
+    try:
+        db.commit()
+    except Exception:
+        # Compensación: si no se pudo marcar como cancelado, se vuelve a ocupar la capacidad liberada
+        db.rollback()
+        flota_client.actualizar_capacidad(despacho.camion_id, -despacho.carga_kg)
+        raise
     return None

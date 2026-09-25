@@ -1,2 +1,7 @@
 
 venv
+
+# Artefactos generados en el build de Docker
+API_Despachos/flota_pb2*.py
+API_Despachos/schemas_generated.py
+__pycache__/
