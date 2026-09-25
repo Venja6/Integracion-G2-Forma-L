@@ -37,8 +37,8 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
             detail={"codigo": "ERR_400", "mensaje": "La carga debe ser mayor que 0 kg."}
         )
 
-    # Se reserva la capacidad directamente en Flota: la verificación y la ocupación
-    # ocurren en una sola operación atómica (SELECT ... FOR UPDATE), sin carrera entre consultar y ocupar.
+    # Reservamos la capacidad directo en Flota, asi se verifica y se ocupa en una sola operacion
+    # (Flota usa SELECT ... FOR UPDATE) y no pasa que dos despachos ocupen la misma capacidad al mismo tiempo
     try:
         respuesta = flota_client.actualizar_capacidad(despacho_in.camion_id, -despacho_in.carga_kg)
     except CamionNoEncontrado:
@@ -68,7 +68,7 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
         db.add(nuevo_despacho)
         db.commit()
     except Exception:
-        # Compensación: si no se pudo guardar el despacho, se libera la capacidad ya reservada en Flota
+        # Si falla al guardar el despacho devolvemos la capacidad que ya se habia reservado en Flota
         db.rollback()
         flota_client.actualizar_capacidad(despacho_in.camion_id, despacho_in.carga_kg)
         raise
@@ -102,7 +102,7 @@ def revertir_despacho(id: str, db: Session = Depends(get_db)):
             detail={"codigo": "ERR_404", "mensaje": "Orden de despacho no encontrada."}
         )
 
-    # DELETE idempotente: revertir un despacho ya cancelado no vuelve a liberar capacidad
+    # Si el despacho ya estaba cancelado no hacemos nada, para no liberar la capacidad dos veces
     if despacho.estado == "CANCELADO":
         return None
 
@@ -120,12 +120,12 @@ def revertir_despacho(id: str, db: Session = Depends(get_db)):
             detail={"codigo": "ERR_409", "mensaje": respuesta.mensaje_error}
         )
 
-    # Se conserva el registro con estado CANCELADO en lugar de borrarlo, para mantener la trazabilidad
+    # No borramos el despacho, solo lo marcamos como CANCELADO para que quede el historial
     despacho.estado = "CANCELADO"
     try:
         db.commit()
     except Exception:
-        # Compensación: si no se pudo marcar como cancelado, se vuelve a ocupar la capacidad liberada
+        # Si falla al marcarlo como cancelado volvemos a ocupar la capacidad que se libero
         db.rollback()
         flota_client.actualizar_capacidad(despacho.camion_id, -despacho.carga_kg)
         raise

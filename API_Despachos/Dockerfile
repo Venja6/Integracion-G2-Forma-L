@@ -18,7 +18,7 @@ COPY . .
 # Generar los modelos Pydantic directamente desde el contrato openapi.yaml
 RUN datamodel-codegen --input openapi.yaml --output schemas_generated.py --input-file-type openapi
 
-# Generar el stub gRPC desde el contrato que publica Flota (fuente única de verdad del .proto)
+# Se genera el stub gRPC a partir del flota.proto de Flota, asi usamos un solo contrato y no una copia
 COPY --from=flota_contrato flota.proto ./proto/flota.proto
 RUN python -m grpc_tools.protoc -I proto --python_out=. --grpc_python_out=. proto/flota.proto
 

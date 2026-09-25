@@ -5,20 +5,20 @@ import flota_pb2
 import flota_pb2_grpc
 
 GRPC_FLOTA_HOST = os.getenv("GRPC_FLOTA_HOST", "localhost:50051")
-# Tiempo máximo de espera por llamada a Flota. Sin él, una Flota lenta bloquearía a la API indefinidamente.
+# Tiempo maximo que esperamos a Flota, si no ponemos esto y Flota se pone lenta la API se queda pegada
 GRPC_TIMEOUT_SEGUNDOS = float(os.getenv("GRPC_FLOTA_TIMEOUT", "2"))
 
-# El canal se crea una sola vez y se reutiliza: HTTP/2 multiplexa todas las llamadas sobre él
+# Creamos el canal una sola vez y lo reusamos, HTTP/2 permite mandar varias llamadas por el mismo canal
 _canal = grpc.insecure_channel(GRPC_FLOTA_HOST)
 _stub = flota_pb2_grpc.ServicioFlotaStub(_canal)
 
 
 class FlotaNoDisponible(Exception):
-    """Flota no respondió a tiempo o está caída."""
+    """Flota no respondio a tiempo o esta caida"""
 
 
 class CamionNoEncontrado(Exception):
-    """Flota no conoce el camión solicitado."""
+    """Flota no tiene el camion que se pidio"""
 
 
 logger = logging.getLogger("uvicorn.error")
@@ -32,7 +32,7 @@ def _traducir_error(e: grpc.RpcError):
 
 
 def actualizar_capacidad(camion_id: str, variacion_kg: float):
-    """Negativo ocupa capacidad, positivo la libera. Retorna ActualizarCapacidadResponse."""
+    """Con un valor negativo se ocupa capacidad y con uno positivo se libera"""
     try:
         return _stub.ActualizarCapacidad(
             flota_pb2.ActualizarCapacidadRequest(camion_id=camion_id, variacion_kg=variacion_kg),

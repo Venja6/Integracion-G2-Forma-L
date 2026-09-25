@@ -35,7 +35,7 @@ class FlotaService(flota_pb2_grpc.ServicioFlotaServicer):
 
     def ActualizarCapacidad(self, request, context):
         with SessionLocal() as db:
-            # lazyload evita el LEFT JOIN a rutas: PostgreSQL no permite FOR UPDATE sobre un outer join
+            # Usamos lazyload para que no haga LEFT JOIN con rutas, porque PostgreSQL no deja usar FOR UPDATE con un outer join
             camion = (
                 db.query(Camion)
                 .options(lazyload(Camion.rutas))

@@ -47,7 +47,7 @@ def init_db():
     seed_db()
 
 def seed_db():
-    # Solo inserta la flota inicial si la tabla está vacía (idempotente entre reinicios)
+    # Solo carga los camiones iniciales si la tabla esta vacia, asi no se duplican al reiniciar
     with SessionLocal() as db:
         if db.query(Camion).first() is not None:
             return
