@@ -1,9 +1,47 @@
 from concurrent import futures
+import os
+import random
+import time
 import grpc
 from sqlalchemy import func
 import flota_pb2
 import flota_pb2_grpc
 from database import init_db, SessionLocal, Camion, Ruta, CamionRuta
+
+
+# Archivo que se usa solo en el experimento del timeout, si no existe no se agrega latencia
+ARCHIVO_LATENCIA = os.getenv("ARCHIVO_LATENCIA", "/tmp/latencia_ms")
+
+
+def _latencia_artificial_ms() -> float:
+    try:
+        with open(ARCHIVO_LATENCIA) as f:
+            return float(f.read().strip() or 0)
+    except (FileNotFoundError, ValueError):
+        return 0.0
+
+
+class LatenciaArtificial(grpc.ServerInterceptor):
+    # Simula que Flota esta lenta para el experimento. Por defecto no hace nada.
+    # El retraso es la media del archivo con una variacion de 30 porciento, como una red real que no siempre tarda lo mismo.
+    # Se envuelve el handler y no se duerme en intercept_service, porque ese metodo puede correr en el hilo que atiende a todo el servidor
+    def intercept_service(self, continuation, handler_call_details):
+        handler = continuation(handler_call_details)
+        if handler is None or handler.unary_unary is None:
+            return handler
+        original = handler.unary_unary
+
+        def con_latencia(request, context):
+            media = _latencia_artificial_ms()
+            if media > 0:
+                time.sleep(max(0.0, random.gauss(media, media * 0.3)) / 1000)
+            return original(request, context)
+
+        return grpc.unary_unary_rpc_method_handler(
+            con_latencia,
+            request_deserializer=handler.request_deserializer,
+            response_serializer=handler.response_serializer,
+        )
 
 
 def _filtro_ruta(origen: str, destino: str):
@@ -107,7 +145,7 @@ class FlotaService(flota_pb2_grpc.ServicioFlotaServicer):
 def iniciar():
     init_db()
 
-    servidor = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    servidor = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=[LatenciaArtificial()])
     flota_pb2_grpc.add_ServicioFlotaServicer_to_server(FlotaService(), servidor)
 
     puerto = "50051"
