@@ -1,0 +1,124 @@
+# Experimento: efecto del timeout cuando Flota responde lento
+
+Experimento de la Competencia 6. Mide cómo protege el timeout de la llamada gRPC a la API de Despachos cuando el servicio de Flota se pone lento, qué se pierde a cambio, y si una mitigación en Flota corrige el problema encontrado.
+
+Se hizo en **dos iteraciones**:
+1. **Sin mitigación:** medir el comportamiento del sistema tal como estaba.
+2. **Con mitigación:** corregir en Flota el problema que encontró la primera iteración y volver a medir con el mismo método.
+
+## Pregunta e hipótesis
+
+**Pregunta.** ¿Cómo cambian el tiempo de respuesta y la tasa de rechazo de `POST /v1/despachos` según el timeout que la API le pone a Flota y según qué tan lento responde Flota?
+
+**Hipótesis.**
+- **H1.** El timeout pone un techo al tiempo de respuesta de la API: el p95 no supera el valor del timeout, sin importar qué tan lenta esté Flota.
+- **H2.** El costo del timeout es rechazar con 503 los despachos cuya respuesta tarda más que el timeout. Mientras más corto el timeout, más rechazos.
+- **H3.** Un 503 por timeout no garantiza que la reserva no ocurrió: Flota puede seguir procesando la petición después de que la API dejó de esperar.
+
+## Método
+
+**Variables independientes.**
+- Timeout de la API hacia Flota (`GRPC_FLOTA_TIMEOUT`): 0,5 s, 1 s, 2 s y 30 s. El de 30 s representa "prácticamente sin timeout".
+- Latencia media de Flota: 0, 250, 500, 1000 y 2000 ms. Se simula con un interceptor gRPC en Flota que agrega un retraso con distribución normal (media indicada, desviación del 30 %), para imitar una red real que no siempre tarda lo mismo. El interceptor solo se activa durante el experimento.
+
+**Variables dependientes.**
+- Tiempo de respuesta de la API medido desde el cliente (p50, p95, máximo).
+- Porcentaje de respuestas 201 y 503.
+- **Reservas huérfanas**: la API respondió 503, pero Flota igual descontó la capacidad. Se calculan comparando la capacidad que bajó en la base de Flota con la que corresponde a los 201.
+
+**Variables controladas.**
+- Mismo camión y ruta (`CAM-03`, Concepción → Santiago, 12 000 kg) y misma carga (10 kg), con capacidad de sobra para que ningún despacho falle por falta de capacidad (409).
+- La capacidad se reinicia antes de cada combinación.
+- Dos peticiones de calentamiento por combinación que no se miden, para que la conexión ya esté abierta.
+- Peticiones secuenciales desde un solo cliente, en la misma máquina (Docker local).
+
+**Procedimiento.** 4 timeouts × 5 latencias = 20 combinaciones, **30 repeticiones cada una (600 despachos por iteración)**. Después de cada combinación se esperan 2 × latencia + 1 s para que Flota termine las peticiones pendientes antes de leer la capacidad.
+
+## Cómo reproducirlo
+
+```bash
+docker compose up -d --build
+pip install -r experimentos/requirements.txt
+python experimentos/timeout/experimento_timeout.py con_mitigacion
+python experimentos/timeout/comparar.py
+```
+
+Cada corrida tarda unos 8 minutos, deja los resultados en `resultados/<nombre>/` y al terminar devuelve el sistema a su estado normal (sin latencia y con timeout de 2 s). Para reproducir la primera iteración hay que quitar el chequeo antes del commit en `ActualizarCapacidad` (`gRPC_Flota/servidor.py`).
+
+## Iteración 1: sin mitigación
+
+![Resultados sin mitigación](resultados/sin_mitigacion/grafico.png)
+
+| Timeout API (s) | Latencia media Flota (ms) | Éxito 201 (%) | Rechazo 503 (%) | p50 (ms) | p95 (ms) | Máx (ms) | Reservas huérfanas |
+|---|---|---|---|---|---|---|---|
+| 0.5 | 0 | 100.0 | 0.0 | 56.2 | 60.5 | 61.2 | 0 de 30 |
+| 0.5 | 250 | 100.0 | 0.0 | 260.6 | 365.2 | 388.1 | 0 de 30 |
+| 0.5 | 500 | 53.3 | 46.7 | 503.2 | 510.8 | 553.0 | 14 de 30 |
+| 0.5 | 1000 | 6.7 | 93.3 | 508.4 | 510.5 | 512.2 | 28 de 30 |
+| 0.5 | 2000 | 0.0 | 100.0 | 508.1 | 509.6 | 564.2 | 30 de 30 |
+| 1 | 0 | 100.0 | 0.0 | 56.5 | 59.9 | 61.4 | 0 de 30 |
+| 1 | 250 | 100.0 | 0.0 | 280.7 | 386.2 | 455.2 | 0 de 30 |
+| 1 | 500 | 100.0 | 0.0 | 476.9 | 623.2 | 804.9 | 0 de 30 |
+| 1 | 1000 | 70.0 | 30.0 | 916.5 | 1008.5 | 1008.7 | 9 de 30 |
+| 1 | 2000 | 6.7 | 93.3 | 1008.0 | 1009.2 | 1010.9 | 28 de 30 |
+| 2 | 0 | 100.0 | 0.0 | 56.3 | 61.1 | 63.4 | 0 de 30 |
+| 2 | 250 | 100.0 | 0.0 | 279.3 | 373.0 | 424.9 | 0 de 30 |
+| 2 | 500 | 100.0 | 0.0 | 550.9 | 787.8 | 1164.4 | 0 de 30 |
+| 2 | 1000 | 100.0 | 0.0 | 915.1 | 1487.4 | 1751.5 | 0 de 30 |
+| 2 | 2000 | 50.0 | 50.0 | 1977.5 | 2009.0 | 2009.8 | 15 de 30 |
+| 30 | 0 | 100.0 | 0.0 | 58.8 | 63.3 | 63.8 | 0 de 30 |
+| 30 | 250 | 100.0 | 0.0 | 256.1 | 394.2 | 436.8 | 0 de 30 |
+| 30 | 500 | 100.0 | 0.0 | 547.2 | 715.7 | 872.7 | 0 de 30 |
+| 30 | 1000 | 100.0 | 0.0 | 1034.8 | 1361.1 | 1430.6 | 0 de 30 |
+| 30 | 2000 | 100.0 | 0.0 | 1822.2 | 2918.7 | 3159.6 | 0 de 30 |
+
+**H1 se cumple: el timeout es un techo.** Con timeout, el p95 nunca supera el timeout en más de ~10 ms (510 ms con 0,5 s, 1009 ms con 1 s, 2009 ms con 2 s), aunque Flota tarde 2 s en promedio. Sin timeout (30 s), el tiempo de la API crece junto con la latencia de Flota: el p95 llega a 2,9 s y el máximo a 3,2 s con 2 s de latencia media. En una caída real (Flota que nunca responde), sin timeout cada petición quedaría esperando hasta 30 s ocupando un hilo de la API.
+
+**H2 se cumple, y el rechazo no es un escalón sino una rampa.** Cuando la latencia media es igual al timeout (0,5 s / 500 ms, 2 s / 2000 ms), se rechaza cerca de la **mitad** de las peticiones: por la variación de la latencia, unas terminan justo antes y otras justo después. Con latencia media del doble del timeout se rechaza más del 90 %. Con latencia media de la mitad del timeout o menos, no se rechazó ninguna.
+
+**H3 se cumple, y es el hallazgo más importante.** En **todas** las combinaciones, la cantidad de reservas huérfanas es **exactamente igual** a la cantidad de 503 (14 de 14, 28 de 28, 9 de 9, 15 de 15…). Es decir: **cada despacho rechazado por timeout igual reservó capacidad en Flota.** La razón es que el timeout es del lado del cliente: la API deja de esperar, pero Flota no se entera y termina de ejecutar la reserva y hace commit. El 503 le dice al usuario "no se pudo" cuando en realidad Flota sí ocupó el espacio. En total quedaron **124 reservas huérfanas en 600 despachos**.
+
+## Iteración 2: con mitigación
+
+**Cambio.** En `ActualizarCapacidad`, justo antes del commit, Flota revisa si la llamada sigue activa (`context.is_active()`) y cuánto plazo le queda (`context.time_remaining()`). Si el cliente ya se fue, o quedan menos de 50 ms, hace rollback y responde `DEADLINE_EXCEEDED` sin reservar.
+
+![Comparación sin y con mitigación](resultados/comparacion.png)
+
+| Timeout / latencia | 503 sin mitigación | Huérfanas sin mitigación | 503 con mitigación | Huérfanas con mitigación |
+|---|---|---|---|---|
+| 0.5 s / 500 ms | 46.7 % | 14 | 70.0 % | 0 |
+| 0.5 s / 1000 ms | 93.3 % | 28 | 86.7 % | 0 |
+| 0.5 s / 2000 ms | 100.0 % | 30 | 100.0 % | 0 |
+| 1 s / 1000 ms | 30.0 % | 9 | 56.7 % | 0 |
+| 1 s / 2000 ms | 93.3 % | 28 | 100.0 % | 0 |
+| 2 s / 2000 ms | 50.0 % | 15 | 50.0 % | 0 |
+| **Total (600 despachos)** | | **124** | | **0** |
+
+Solo se muestran las combinaciones donde hubo rechazos; en las demás no hubo 503 ni huérfanas en ninguna iteración. La tabla completa está en `resultados/con_mitigacion/resumen.md`.
+
+**Las reservas huérfanas bajaron de 124 a 0.** El techo del tiempo de respuesta (H1) se mantuvo igual: p95 de 509, 1009 y 2009 ms.
+
+**Costo de la mitigación.** En algunas combinaciones cerca del umbral subió el porcentaje de 503 (de 46,7 % a 70 % con 0,5 s / 500 ms, de 30 % a 56,7 % con 1 s / 1000 ms). Hay dos causas y no se pueden separar con estos datos:
+- **Variación entre corridas**: cerca del umbral el resultado cambia bastante de una corrida a otra (ver limitaciones).
+- **El margen de 50 ms**: ahora Flota rechaza peticiones que antes alcanzaban a terminar justo antes del plazo.
+
+Es un intercambio razonable: se rechazan algunos despachos más, pero **un 503 ahora significa de verdad que no se reservó nada**.
+
+## Conclusiones
+
+1. **El timeout protege a la API**: fija un tiempo máximo de respuesta y evita que una Flota lenta deje a la API colgada (falla en cascada). Sin timeout no hay rechazos, pero el tiempo de respuesta queda en manos de Flota.
+2. **El valor de 2 s que usa el sistema es razonable para este escenario**: no rechazó ningún despacho con latencias medias de hasta 1 s y acota la espera a ~2 s. Un timeout de 0,5 s ya rechaza la mitad o más con 500 ms de latencia, que es un retraso plausible en una red con carga.
+3. **Un timeout solo del lado del cliente rompe la consistencia entre servicios.** Sin mitigación, el 100 % de los rechazos por timeout dejó una reserva huérfana en Flota.
+4. **El servidor tiene que respetar el plazo del cliente.** gRPC le envía el plazo (*deadline*) al servidor; revisarlo antes del commit eliminó las reservas huérfanas medidas. La lección general: **el timeout tiene que ser responsabilidad de los dos lados**, no solo de quien llama.
+5. **La mitigación reduce el problema, pero no lo elimina por completo.** El plazo puede vencer entre el chequeo y el commit (una ventana de milisegundos), o la respuesta de un commit exitoso se puede perder en la red. Para cerrar esos casos harían falta mecanismos más fuertes:
+   - un id de operación para que `ActualizarCapacidad` sea idempotente y la API pueda reintentar sin duplicar;
+   - un proceso de conciliación que compare despachos con reservas;
+   - reservas con expiración (*reserve–confirm*), cercano a una Saga de la Unidad 3.
+
+## Limitaciones
+
+- **La latencia simulada ocurre antes de procesar la petición.** Por eso el chequeo antes del commit la detecta casi siempre. Si la lentitud estuviera *después* del commit (por ejemplo, en la red de vuelta), la mitigación no ayudaría y podría seguir habiendo huérfanas.
+- **Un solo cliente y peticiones secuenciales.** No se midió el efecto con muchas peticiones concurrentes, donde sin timeout se agotarían los hilos de la API.
+- **Latencia sintética** con distribución normal; una red real puede tener colas más largas (picos ocasionales muy altos).
+- **Todo corre en una misma máquina con Docker**, sin red real entre servicios.
+- **30 repeticiones por combinación y una corrida por iteración.** Cerca del umbral (latencia ≈ timeout) el porcentaje de rechazo varía entre corridas: en una corrida preliminar interrumpida, la combinación 1 s / 1000 ms dio 50 % de rechazo y en la corrida completa 30 %. La tendencia se mantiene, el valor exacto no. Por eso la comparación de 503 entre iteraciones no es concluyente; la de reservas huérfanas (124 contra 0) sí lo es.

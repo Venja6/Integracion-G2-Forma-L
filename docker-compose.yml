@@ -49,6 +49,7 @@ services:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgrespassword@db:5432/despachos_db
       - PORT=8000
       - GRPC_FLOTA_HOST=grpc_flota:50051
+      - GRPC_FLOTA_TIMEOUT=${GRPC_FLOTA_TIMEOUT:-2}
       - SECRET_KEY=${SECRET_KEY:-clave-desarrollo-cambiar-en-produccion}
       - REDIS_URL=redis://redis:6379/0
       - CACHE_TTL_SEGUNDOS=30
