@@ -31,12 +31,26 @@ def _traducir_error(e: grpc.RpcError):
     return FlotaNoDisponible(f"{e.code().name}: {e.details()}")
 
 
-def actualizar_capacidad(camion_id: str, variacion_kg: float):
+def actualizar_capacidad(camion_id: str, origen: str, destino: str, variacion_kg: float):
     """Con un valor negativo se ocupa capacidad y con uno positivo se libera"""
     try:
         return _stub.ActualizarCapacidad(
-            flota_pb2.ActualizarCapacidadRequest(camion_id=camion_id, variacion_kg=variacion_kg),
+            flota_pb2.ActualizarCapacidadRequest(
+                camion_id=camion_id, origen=origen, destino=destino, variacion_kg=variacion_kg
+            ),
             timeout=GRPC_TIMEOUT_SEGUNDOS,
         )
     except grpc.RpcError as e:
         raise _traducir_error(e) from e
+
+
+def buscar_disponibles(origen: str, destino: str, carga_minima_kg: float = 0.0):
+    """Devuelve una lista de (camion_id, capacidad_disponible_kg) para la ruta"""
+    try:
+        respuesta = _stub.BuscarDisponibles(
+            flota_pb2.BuscarDisponiblesRequest(origen=origen, destino=destino, carga_minima_kg=carga_minima_kg),
+            timeout=GRPC_TIMEOUT_SEGUNDOS,
+        )
+    except grpc.RpcError as e:
+        raise _traducir_error(e) from e
+    return [(c.camion_id, c.capacidad_disponible_kg) for c in respuesta.camiones]

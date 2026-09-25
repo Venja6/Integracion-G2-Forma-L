@@ -23,6 +23,7 @@ def listar_despachos(db: Session = Depends(get_db), usuario: dict = Depends(usua
         401: {"model": Error},
         403: {"model": Error},
         409: {"model": Error},
+        422: {"model": Error},
         503: {"model": Error}
     }
 )
@@ -37,11 +38,13 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
     # Reservamos la capacidad directo en Flota, asi se verifica y se ocupa en una sola operacion
     # (Flota usa SELECT ... FOR UPDATE) y no pasa que dos despachos ocupen la misma capacidad al mismo tiempo
     try:
-        respuesta = flota_client.actualizar_capacidad(despacho_in.camion_id, -despacho_in.carga_kg)
+        respuesta = flota_client.actualizar_capacidad(
+            despacho_in.camion_id, despacho_in.origen, despacho_in.destino, -despacho_in.carga_kg
+        )
     except CamionNoEncontrado:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"codigo": "ERR_400", "mensaje": "El camión especificado no existe."}
+            detail={"codigo": "ERR_400", "mensaje": "El camión no existe o no opera la ruta indicada."}
         )
     except FlotaNoDisponible:
         raise HTTPException(
@@ -58,6 +61,8 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
     nuevo_despacho = DespachoModel(
         cliente_id=despacho_in.cliente_id,
         camion_id=despacho_in.camion_id,
+        origen=despacho_in.origen,
+        destino=despacho_in.destino,
         carga_kg=despacho_in.carga_kg,
         estado="REGISTRADO"
     )
@@ -67,7 +72,9 @@ def registrar_despacho(despacho_in: DespachoInput, db: Session = Depends(get_db)
     except Exception:
         # Si falla al guardar el despacho devolvemos la capacidad que ya se habia reservado en Flota
         db.rollback()
-        flota_client.actualizar_capacidad(despacho_in.camion_id, despacho_in.carga_kg)
+        flota_client.actualizar_capacidad(
+            despacho_in.camion_id, despacho_in.origen, despacho_in.destino, despacho_in.carga_kg
+        )
         raise
     db.refresh(nuevo_despacho)
     return nuevo_despacho
@@ -106,7 +113,9 @@ def revertir_despacho(id: str, db: Session = Depends(get_db), usuario: dict = De
         return None
 
     try:
-        respuesta = flota_client.actualizar_capacidad(despacho.camion_id, despacho.carga_kg)
+        respuesta = flota_client.actualizar_capacidad(
+            despacho.camion_id, despacho.origen, despacho.destino, despacho.carga_kg
+        )
     except (FlotaNoDisponible, CamionNoEncontrado):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -126,6 +135,6 @@ def revertir_despacho(id: str, db: Session = Depends(get_db), usuario: dict = De
     except Exception:
         # Si falla al marcarlo como cancelado volvemos a ocupar la capacidad que se libero
         db.rollback()
-        flota_client.actualizar_capacidad(despacho.camion_id, -despacho.carga_kg)
+        flota_client.actualizar_capacidad(despacho.camion_id, despacho.origen, despacho.destino, -despacho.carga_kg)
         raise
     return None

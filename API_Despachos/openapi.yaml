@@ -123,8 +123,9 @@ paths:
     post:
       summary: Registrar una orden de despacho
       description: >
-        Crea un nuevo despacho. Esta operación consulta internamente al sistema de Flota 
-        vía gRPC para verificar que exista capacidad de carga disponible.
+        Crea un nuevo despacho. Esta operación reserva internamente en el sistema de Flota
+        (vía gRPC) la capacidad del camión en la ruta origen → destino. Si no hay capacidad
+        suficiente responde 409.
       requestBody:
         required: true
         content:
@@ -219,6 +220,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /camiones/disponibles:
+    get:
+      summary: Buscar camiones con capacidad en una ruta
+      description: >
+        Consulta a Flota (vía gRPC) los camiones que operan la ruta origen → destino
+        y tienen al menos carga_kg de capacidad libre. Ordenados de mayor a menor capacidad.
+      parameters:
+        - in: query
+          name: origen
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: Concepcion
+        - in: query
+          name: destino
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: Chillan
+        - in: query
+          name: carga_kg
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            default: 0
+          description: Capacidad libre mínima requerida, en kg.
+      responses:
+        '200':
+          description: Camiones disponibles (lista vacía si ninguno cumple).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CamionDisponible'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          description: El sistema interno de Flota no responde o está caído.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -254,6 +304,12 @@ components:
         camion_id:
           type: string
           example: "CAM-05"
+        origen:
+          type: string
+          example: "Concepcion"
+        destino:
+          type: string
+          example: "Chillan"
         carga_kg:
           type: number
           example: 1500.5
@@ -266,6 +322,8 @@ components:
       required:
         - cliente_id
         - camion_id
+        - origen
+        - destino
         - carga_kg
       properties:
         cliente_id:
@@ -274,6 +332,14 @@ components:
         camion_id:
           type: string
           example: "CAM-05"
+        origen:
+          type: string
+          minLength: 1
+          example: "Concepcion"
+        destino:
+          type: string
+          minLength: 1
+          example: "Chillan"
         carga_kg:
           type: number
           exclusiveMinimum: true
@@ -295,6 +361,22 @@ components:
           type: string
           format: email
           example: "contacto@empresaabc.cl"
+
+    CamionDisponible:
+      type: object
+      properties:
+        camion_id:
+          type: string
+          example: "CAM-04"
+        origen:
+          type: string
+          example: "Concepcion"
+        destino:
+          type: string
+          example: "Chillan"
+        capacidad_disponible_kg:
+          type: number
+          example: 5000
 
     LoginInput:
       type: object

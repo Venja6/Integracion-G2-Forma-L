@@ -22,5 +22,7 @@ class DespachoModel(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     cliente_id = Column(String, nullable=False)
     camion_id = Column(String, nullable=False)
+    origen = Column(String, nullable=False)
+    destino = Column(String, nullable=False)
     carga_kg = Column(Float, nullable=False)
     estado = Column(String, default="REGISTRADO")

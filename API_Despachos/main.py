@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from database import engine, Base, SessionLocal
 from models import UsuarioModel
-from routers import auth as auth_router, clientes, despachos
+from routers import auth as auth_router, clientes, despachos, camiones
 from auth import hashear_password, ROL_OPERADOR, ROL_CONSULTA
 from errores import registrar_manejadores
 from dotenv import load_dotenv
@@ -48,6 +48,7 @@ registrar_manejadores(app)
 app.include_router(auth_router.router)
 app.include_router(clientes.router)
 app.include_router(despachos.router)
+app.include_router(camiones.router)
 
 # Forzar a FastAPI a entregar exactamente el OpenAPI definido en el YAML
 def custom_openapi():
