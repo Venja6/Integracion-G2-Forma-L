@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, String, Float, ForeignKey
+from sqlalchemy import create_engine, String, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column, relationship
 from typing import List
 
@@ -15,31 +15,44 @@ class Camion(Base):
     __tablename__="camiones"
 
     camion_id: Mapped[str] = mapped_column(String(20), primary_key=True)
-    capacidad_total_kg: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    capacidad_disponible_kg: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Carga maxima que soporta el camion, es el tope de capacidad en cada ruta
+    capacidad_maxima_kg: Mapped[float] = mapped_column(Float, nullable=False)
 
-    rutas: Mapped[List["RutaCamion"]] = relationship(
+    rutas: Mapped[List["CamionRuta"]] = relationship(
         back_populates="camion",
         cascade="all, delete-orphan",
-        lazy="joined"
+        lazy="selectin"
     )
 
-class RutaCamion(Base):
-    __tablename__="rutas_camion"
+class Ruta(Base):
+    __tablename__="rutas"
+    __table_args__ = (UniqueConstraint("origen", "destino"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    origen: Mapped[str] = mapped_column(String(100), nullable=False)
+    destino: Mapped[str] = mapped_column(String(100), nullable=False)
+
+class CamionRuta(Base):
+    __tablename__="camion_rutas"
+    __table_args__ = (UniqueConstraint("camion_id", "ruta_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     camion_id: Mapped[str] = mapped_column(ForeignKey("camiones.camion_id", ondelete="CASCADE"))
-    nombre_ruta: Mapped[str] = mapped_column(String(100), nullable=False)
+    ruta_id: Mapped[int] = mapped_column(ForeignKey("rutas.id", ondelete="CASCADE"))
+    # La capacidad libre es por ruta, un mismo camion puede ir lleno en una ruta y vacio en otra
+    capacidad_disponible_kg: Mapped[float] = mapped_column(Float, nullable=False)
 
     camion: Mapped["Camion"] = relationship(back_populates="rutas")
+    ruta: Mapped["Ruta"] = relationship(lazy="selectin")
 
 
+# (camion, capacidad maxima, rutas que opera como (origen, destino))
 CAMIONES_INICIALES = [
-    ("CAM-01", 10000.0, ["Concepcion - Santiago"]),
-    ("CAM-02", 8000.0, ["Concepcion - Temuco", "Temuco - Puerto Montt"]),
-    ("CAM-03", 12000.0, ["Santiago - Valparaiso"]),
-    ("CAM-04", 5000.0, ["Concepcion - Chillan"]),
-    ("CAM-05", 3000.0, ["Los Angeles - Concepcion"]),
+    ("CAM-01", 10000.0, [("Concepcion", "Santiago"), ("Santiago", "Concepcion")]),
+    ("CAM-02", 8000.0, [("Concepcion", "Temuco"), ("Temuco", "Puerto Montt")]),
+    ("CAM-03", 12000.0, [("Concepcion", "Santiago"), ("Santiago", "Valparaiso")]),
+    ("CAM-04", 5000.0, [("Concepcion", "Chillan"), ("Concepcion", "Temuco")]),
+    ("CAM-05", 3000.0, [("Los Angeles", "Concepcion"), ("Concepcion", "Chillan")]),
 ]
 
 def init_db():
@@ -51,13 +64,14 @@ def seed_db():
     with SessionLocal() as db:
         if db.query(Camion).first() is not None:
             return
-        for camion_id, capacidad, rutas in CAMIONES_INICIALES:
-            db.add(Camion(
-                camion_id=camion_id,
-                capacidad_total_kg=capacidad,
-                capacidad_disponible_kg=capacidad,
-                rutas=[RutaCamion(nombre_ruta=r) for r in rutas]
-            ))
+        rutas = {}
+        for camion_id, capacidad, rutas_camion in CAMIONES_INICIALES:
+            camion = Camion(camion_id=camion_id, capacidad_maxima_kg=capacidad)
+            for origen, destino in rutas_camion:
+                if (origen, destino) not in rutas:
+                    rutas[(origen, destino)] = Ruta(origen=origen, destino=destino)
+                camion.rutas.append(CamionRuta(ruta=rutas[(origen, destino)], capacidad_disponible_kg=capacidad))
+            db.add(camion)
         db.commit()
 
 def get_db():

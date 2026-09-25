@@ -3,8 +3,11 @@ import time
 import yaml
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from database import engine, Base
-from routers import clientes, despachos
+from database import engine, Base, SessionLocal
+from models import UsuarioModel
+from routers import auth as auth_router, clientes, despachos, camiones
+from auth import hashear_password, ROL_OPERADOR, ROL_CONSULTA
+from errores import registrar_manejadores
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,13 +26,29 @@ for attempt in range(max_retries):
         else:
             raise e
 
+# No hay endpoint para registrar usuarios, se crean estos dos al partir si todavia no existen
+USUARIOS_INICIALES = [
+    (os.getenv("USUARIO_OPERADOR", "operador"), os.getenv("PASSWORD_OPERADOR", "operador123"), ROL_OPERADOR),
+    (os.getenv("USUARIO_CONSULTA", "consulta"), os.getenv("PASSWORD_CONSULTA", "consulta123"), ROL_CONSULTA),
+]
+
+with SessionLocal() as db:
+    for username, password, rol in USUARIOS_INICIALES:
+        if not db.get(UsuarioModel, username):
+            db.add(UsuarioModel(username=username, password_hash=hashear_password(password), rol=rol))
+    db.commit()
+
 app = FastAPI(
     title="API de Sistema de Despachos - CargaSur",
     version="1.0.0"
 )
 
+registrar_manejadores(app)
+
+app.include_router(auth_router.router)
 app.include_router(clientes.router)
 app.include_router(despachos.router)
+app.include_router(camiones.router)
 
 # Forzar a FastAPI a entregar exactamente el OpenAPI definido en el YAML
 def custom_openapi():

@@ -1,0 +1,14 @@
+{
+  "name": "cliente-flota-node",
+  "version": "1.0.0",
+  "description": "Segundo cliente del servicio gRPC de Flota, en Node.js, para mostrar la interoperabilidad del contrato",
+  "main": "cliente.js",
+  "private": true,
+  "scripts": {
+    "start": "node cliente.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.12.0",
+    "@grpc/proto-loader": "^0.7.13"
+  }
+}

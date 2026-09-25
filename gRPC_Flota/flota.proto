@@ -5,13 +5,16 @@ package flota.v1;
 
 // Definición del Servicio (Las "funciones" que Despachos podrá llamar)
 service ServicioFlota {
-  // Consultar un camión y su capacidad de carga disponible
-  rpc ConsultarCamion (ConsultarCamionRequest) returns (ConsultarCamionResponse);
-  
-  // Listar la flota y sus rutas
-  rpc ListarFlota (ListarFlotaRequest) returns (ListarFlotaResponse);
-  
-  // Ocupar o liberar capacidad (para reflejar el despacho o su cancelación)
+  // Consultar un camión y su capacidad de carga disponible en cada ruta
+  rpc ConsultarCamion (ConsultarCamionRequest) returns (Camion);
+
+  // Listar la flota y sus rutas. Server streaming, se envia un camion a la vez
+  rpc ListarFlota (ListarFlotaRequest) returns (stream Camion);
+
+  // Buscar camiones que operan una ruta y tienen al menos cierta capacidad libre
+  rpc BuscarDisponibles (BuscarDisponiblesRequest) returns (BuscarDisponiblesResponse);
+
+  // Ocupar o liberar capacidad en una ruta (para reflejar el despacho o su cancelación)
   rpc ActualizarCapacidad (ActualizarCapacidadRequest) returns (ActualizarCapacidadResponse);
 }
 
@@ -19,27 +22,46 @@ service ServicioFlota {
 // Mensajes: Las estructuras de datos (inputs y outputs)
 // =========================================================
 
-message ConsultarCamionRequest {
-  string camion_id = 1;
+// La ruta se identifica por origen y destino, asi Despachos no depende de los ids internos de Flota
+message CapacidadRuta {
+  string origen = 1;
+  string destino = 2;
+  double capacidad_total_kg = 3;
+  double capacidad_disponible_kg = 4;
 }
 
-message ConsultarCamionResponse {
+message Camion {
   string camion_id = 1;
-  double capacidad_disponible_kg = 2;
-  repeated string rutas = 3;
+  repeated CapacidadRuta rutas = 2;
+}
 
+message ConsultarCamionRequest {
+  string camion_id = 1;
 }
 
 message ListarFlotaRequest {
 }
 
-message ListarFlotaResponse {
-  repeated ConsultarCamionResponse camiones = 1;
+message BuscarDisponiblesRequest {
+  string origen = 1;
+  string destino = 2;
+  double carga_minima_kg = 3; // 0 devuelve todos los camiones de la ruta
+}
+
+message CamionDisponible {
+  string camion_id = 1;
+  double capacidad_disponible_kg = 2;
+}
+
+message BuscarDisponiblesResponse {
+  repeated CamionDisponible camiones = 1;
 }
 
 message ActualizarCapacidadRequest {
   string camion_id = 1;
   double variacion_kg = 2; // Número positivo para liberar, negativo para ocupar
+  string origen = 3;
+  string destino = 4;
 }
 
 message ActualizarCapacidadResponse {

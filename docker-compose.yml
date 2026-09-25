@@ -49,11 +49,23 @@ services:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgrespassword@db:5432/despachos_db
       - PORT=8000
       - GRPC_FLOTA_HOST=grpc_flota:50051
+      - SECRET_KEY=${SECRET_KEY:-clave-desarrollo-cambiar-en-produccion}
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_TTL_SEGUNDOS=30
     depends_on:
       db:
         condition: service_healthy
       grpc_flota:
         condition: service_started
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: despachos_redis
+    restart: always
+    ports:
+      - "6379:6379"
 
   grpc_flota:
     build:
@@ -68,6 +80,19 @@ services:
     depends_on:
       db_flota:
         condition: service_healthy
+
+  # Segundo cliente gRPC en Node.js. No parte con "docker compose up", se ejecuta a mano con
+  # docker compose run --rm cliente_node
+  cliente_node:
+    build:
+      context: ./cliente_node
+      additional_contexts:
+        flota_contrato: ./gRPC_Flota
+    profiles: ["herramientas"]
+    environment:
+      - GRPC_FLOTA_HOST=grpc_flota:50051
+    depends_on:
+      - grpc_flota
 
 volumes:
   despachos_postgres_data:

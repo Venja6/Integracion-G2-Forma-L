@@ -12,6 +12,31 @@ security:
   - BearerAuth: []
 
 paths:
+  /auth/token:
+    post:
+      summary: Obtener un token de acceso
+      description: >
+        Recibe usuario y contraseña y devuelve un JWT firmado que expira.
+        El token incluye el rol del usuario (operador o consulta).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Token emitido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
   /clientes:
     get:
       summary: Listar clientes
@@ -44,8 +69,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cliente'
-        '400':
-          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Ya existe un cliente con ese email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /clientes/{id}:
     get:
@@ -64,6 +99,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cliente'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
@@ -86,8 +123,21 @@ paths:
     post:
       summary: Registrar una orden de despacho
       description: >
-        Crea un nuevo despacho. Esta operación consulta internamente al sistema de Flota 
-        vía gRPC para verificar que exista capacidad de carga disponible.
+        Crea un nuevo despacho. Esta operación reserva internamente en el sistema de Flota
+        (vía gRPC) la capacidad del camión en la ruta origen → destino. Si no hay capacidad
+        suficiente responde 409.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: >
+            Clave única generada por el cliente (por ejemplo un UUID). Si se reintenta la petición
+            con la misma clave y los mismos datos, se devuelve el despacho ya creado sin reservar
+            capacidad de nuevo (respuesta con header Idempotent-Replayed true). Con la misma clave
+            pero otros datos responde 422.
       requestBody:
         required: true
         content:
@@ -103,12 +153,18 @@ paths:
                 $ref: '#/components/schemas/Despacho'
         '400':
           $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '409':
           description: Conflicto. No hay capacidad de carga disponible en el camión.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '503':
           description: >
             Servicio no disponible. El sistema interno de Flota no responde o está caído.
@@ -135,6 +191,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Despacho'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
@@ -155,6 +213,10 @@ paths:
           description: >
             Despacho revertido exitosamente (estado CANCELADO) y capacidad liberada en Flota.
             Es idempotente: revertir un despacho ya cancelado también retorna 204.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '409':
@@ -170,12 +232,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /camiones/disponibles:
+    get:
+      summary: Buscar camiones con capacidad en una ruta
+      description: >
+        Consulta a Flota (vía gRPC) los camiones que operan la ruta origen → destino
+        y tienen al menos carga_kg de capacidad libre. Ordenados de mayor a menor capacidad.
+      parameters:
+        - in: query
+          name: origen
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: Concepcion
+        - in: query
+          name: destino
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: Chillan
+        - in: query
+          name: carga_kg
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            default: 0
+          description: Capacidad libre mínima requerida, en kg.
+      responses:
+        '200':
+          description: Camiones disponibles (lista vacía si ninguno cumple).
+          headers:
+            X-Cache:
+              description: HIT si vino de la caché Redis, MISS si se consultó a Flota, BYPASS si Redis no respondió.
+              schema:
+                type: string
+                enum: [HIT, MISS, BYPASS]
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CamionDisponible'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          description: El sistema interno de Flota no responde o está caído.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: >
+        Token obtenido en POST /v1/auth/token. Rol operador puede leer y modificar;
+        rol consulta solo puede leer.
 
   schemas:
     Cliente:
@@ -202,18 +322,38 @@ components:
         camion_id:
           type: string
           example: "CAM-05"
+        origen:
+          type: string
+          example: "Concepcion"
+        destino:
+          type: string
+          example: "Chillan"
         carga_kg:
           type: number
           example: 1500.5
         estado:
           type: string
+          enum: [REGISTRADO, CANCELADO]
           example: "REGISTRADO"
+        _links:
+          type: object
+          description: >
+            Acciones disponibles según el estado (HATEOAS). "revertir" solo aparece si el
+            despacho está REGISTRADO.
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          example:
+            self: { href: "/v1/despachos/D-5001", method: "GET" }
+            cliente: { href: "/v1/clientes/C-1001", method: "GET" }
+            revertir: { href: "/v1/despachos/D-5001", method: "DELETE" }
           
     DespachoInput:
       type: object
       required:
         - cliente_id
         - camion_id
+        - origen
+        - destino
         - carga_kg
       properties:
         cliente_id:
@@ -222,9 +362,19 @@ components:
         camion_id:
           type: string
           example: "CAM-05"
+        origen:
+          type: string
+          minLength: 1
+          example: "Concepcion"
+        destino:
+          type: string
+          minLength: 1
+          example: "Chillan"
         carga_kg:
           type: number
-          description: "Cantidad de carga a despachar en kilogramos"
+          exclusiveMinimum: true
+          minimum: 0
+          description: "Cantidad de carga a despachar en kilogramos, debe ser mayor que 0"
           example: 1500.5
           
     ClienteInput:
@@ -235,10 +385,67 @@ components:
       properties:
         nombre:
           type: string
+          minLength: 1
           example: "Empresa ABC"
         email:
           type: string
+          format: email
           example: "contacto@empresaabc.cl"
+
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+        method:
+          type: string
+
+    CamionDisponible:
+      type: object
+      properties:
+        camion_id:
+          type: string
+          example: "CAM-04"
+        origen:
+          type: string
+          example: "Concepcion"
+        destino:
+          type: string
+          example: "Chillan"
+        capacidad_disponible_kg:
+          type: number
+          example: 5000
+
+    LoginInput:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "operador"
+        password:
+          type: string
+          format: password
+          example: "operador123"
+
+    Token:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Segundos hasta que el token expira.
+          example: 1800
 
     Error:
       type: object
@@ -259,6 +466,18 @@ components:
             $ref: '#/components/schemas/Error'
     UnauthorizedError:
       description: No autenticado. Falla el token de seguridad.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenError:
+      description: Autenticado, pero el rol no tiene permiso para esta operación (solo el rol operador puede modificar).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: El cuerpo o los parámetros no cumplen el contrato (tipo incorrecto, campo faltante, carga no positiva, email inválido).
       content:
         application/json:
           schema:
