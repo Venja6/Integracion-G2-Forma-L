@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:17-alpine
@@ -13,7 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - despachos_postgres_data:/var/lib/postgresql/data
-  
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d despachos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   db_flota:
     image: postgres:17-alpine
     container_name: flota_postgres
@@ -26,21 +29,32 @@ services:
       - "5433:5432"
     volumes:
       - flota_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flota_user -d flota_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api_despachos:
     build:
       context: ./API_Despachos
       dockerfile: Dockerfile
+      additional_contexts:
+        flota_contrato: ./gRPC_Flota
     container_name: despachos_api
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/despachos_db
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgrespassword@db:5432/despachos_db
       - PORT=8000
+      - GRPC_FLOTA_HOST=grpc_flota:50051
     depends_on:
-      - db
-  
+      db:
+        condition: service_healthy
+      grpc_flota:
+        condition: service_started
+
   grpc_flota:
     build:
       context: ./gRPC_Flota
@@ -50,9 +64,10 @@ services:
     ports:
       - "50051:50051"
     environment:
-      - DATABASE_URL="postgresql+psycopg2://flota_user:flotapassword@localhost:5432/flota_db"
+      - DATABASE_URL=postgresql+psycopg2://flota_user:flotapassword@db_flota:5432/flota_db
     depends_on:
-      - db_flota
+      db_flota:
+        condition: service_healthy
 
 volumes:
   despachos_postgres_data:
