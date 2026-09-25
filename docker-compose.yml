@@ -50,11 +50,22 @@ services:
       - PORT=8000
       - GRPC_FLOTA_HOST=grpc_flota:50051
       - SECRET_KEY=${SECRET_KEY:-clave-desarrollo-cambiar-en-produccion}
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_TTL_SEGUNDOS=30
     depends_on:
       db:
         condition: service_healthy
       grpc_flota:
         condition: service_started
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: despachos_redis
+    restart: always
+    ports:
+      - "6379:6379"
 
   grpc_flota:
     build:

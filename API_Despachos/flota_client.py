@@ -3,6 +3,7 @@ import logging
 import grpc
 import flota_pb2
 import flota_pb2_grpc
+import cache
 
 GRPC_FLOTA_HOST = os.getenv("GRPC_FLOTA_HOST", "localhost:50051")
 # Tiempo maximo que esperamos a Flota, si no ponemos esto y Flota se pone lenta la API se queda pegada
@@ -42,6 +43,9 @@ def actualizar_capacidad(camion_id: str, origen: str, destino: str, variacion_kg
         )
     except grpc.RpcError as e:
         raise _traducir_error(e) from e
+    finally:
+        # Se invalida siempre, incluso si hubo error, porque con un timeout no sabemos si Flota alcanzo a aplicar el cambio
+        cache.invalidar_ruta(origen, destino)
 
 
 def buscar_disponibles(origen: str, destino: str, carga_minima_kg: float = 0.0):

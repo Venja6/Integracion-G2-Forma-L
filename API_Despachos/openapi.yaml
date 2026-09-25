@@ -126,6 +126,18 @@ paths:
         Crea un nuevo despacho. Esta operación reserva internamente en el sistema de Flota
         (vía gRPC) la capacidad del camión en la ruta origen → destino. Si no hay capacidad
         suficiente responde 409.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: >
+            Clave única generada por el cliente (por ejemplo un UUID). Si se reintenta la petición
+            con la misma clave y los mismos datos, se devuelve el despacho ya creado sin reservar
+            capacidad de nuevo (respuesta con header Idempotent-Replayed true). Con la misma clave
+            pero otros datos responde 422.
       requestBody:
         required: true
         content:
@@ -252,6 +264,12 @@ paths:
       responses:
         '200':
           description: Camiones disponibles (lista vacía si ninguno cumple).
+          headers:
+            X-Cache:
+              description: HIT si vino de la caché Redis, MISS si se consultó a Flota, BYPASS si Redis no respondió.
+              schema:
+                type: string
+                enum: [HIT, MISS, BYPASS]
           content:
             application/json:
               schema:
@@ -315,7 +333,19 @@ components:
           example: 1500.5
         estado:
           type: string
+          enum: [REGISTRADO, CANCELADO]
           example: "REGISTRADO"
+        _links:
+          type: object
+          description: >
+            Acciones disponibles según el estado (HATEOAS). "revertir" solo aparece si el
+            despacho está REGISTRADO.
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          example:
+            self: { href: "/v1/despachos/D-5001", method: "GET" }
+            cliente: { href: "/v1/clientes/C-1001", method: "GET" }
+            revertir: { href: "/v1/despachos/D-5001", method: "DELETE" }
           
     DespachoInput:
       type: object
@@ -361,6 +391,14 @@ components:
           type: string
           format: email
           example: "contacto@empresaabc.cl"
+
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+        method:
+          type: string
 
     CamionDisponible:
       type: object

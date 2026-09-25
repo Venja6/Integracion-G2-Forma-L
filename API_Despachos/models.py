@@ -26,3 +26,6 @@ class DespachoModel(Base):
     destino = Column(String, nullable=False)
     carga_kg = Column(Float, nullable=False)
     estado = Column(String, default="REGISTRADO")
+    # Clave que manda el cliente para que un reintento no cree dos despachos, unique para que la BD lo garantice
+    idempotency_key = Column(String(255), unique=True, nullable=True)
+    request_hash = Column(String(64), nullable=True)
