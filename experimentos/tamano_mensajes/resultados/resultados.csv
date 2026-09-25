@@ -1,0 +1,6 @@
+camiones,protobuf_bytes,json_bytes,protobuf_gzip_bytes,json_gzip_bytes,protobuf_vs_json_pct,con_gzip_protobuf_vs_json_pct,protobuf_serializar_ms,json_serializar_ms,protobuf_leer_ms,json_leer_ms
+1,58,142,71,134,40.8,53.0,0.001,0.003,0.001,0.002
+10,1110,2785,505,503,39.9,100.4,0.003,0.025,0.006,0.018
+100,12438,31418,3026,2914,39.6,103.8,0.03,0.252,0.099,0.196
+1000,118604,300080,22811,23572,39.5,96.8,0.302,2.426,0.747,2.021
+10000,1183861,2994004,219199,229259,39.5,95.6,4.278,27.524,8.056,23.724
