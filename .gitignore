@@ -14,3 +14,7 @@ SUSTENTACION.md
 
 # Dependencias de Node
 node_modules/
+
+# Stubs que generan las pruebas
+tests/_generado/
+.pytest_cache/

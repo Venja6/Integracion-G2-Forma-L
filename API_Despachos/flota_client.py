@@ -9,8 +9,16 @@ GRPC_FLOTA_HOST = os.getenv("GRPC_FLOTA_HOST", "localhost:50051")
 # Tiempo maximo que esperamos a Flota, si no ponemos esto y Flota se pone lenta la API se queda pegada
 GRPC_TIMEOUT_SEGUNDOS = float(os.getenv("GRPC_FLOTA_TIMEOUT", "2"))
 
-# Creamos el canal una sola vez y lo reusamos, HTTP/2 permite mandar varias llamadas por el mismo canal
-_canal = grpc.insecure_channel(GRPC_FLOTA_HOST)
+# Creamos el canal una sola vez y lo reusamos, HTTP/2 permite mandar varias llamadas por el mismo canal.
+# Por defecto gRPC espera cada vez mas entre intentos de reconexion (hasta 120 s), entonces despues de una caida
+# larga la API seguiria dando 503 aunque Flota ya haya vuelto. Con esto reintenta como maximo cada 2 s
+_canal = grpc.insecure_channel(
+    GRPC_FLOTA_HOST,
+    options=[
+        ("grpc.initial_reconnect_backoff_ms", 500),
+        ("grpc.max_reconnect_backoff_ms", 2000),
+    ],
+)
 _stub = flota_pb2_grpc.ServicioFlotaStub(_canal)
 
 
