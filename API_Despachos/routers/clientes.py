@@ -2,17 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
+from auth import usuario_actual, requiere_operador
 from models import ClienteModel
 from schemas_generated import Cliente, ClienteInput, Error
 
 router = APIRouter(prefix="/v1/clientes", tags=["Clientes"])
 
-@router.get("", response_model=List[Cliente])
-def listar_clientes(db: Session = Depends(get_db)):
+@router.get("", response_model=List[Cliente], responses={401: {"model": Error}})
+def listar_clientes(db: Session = Depends(get_db), usuario: dict = Depends(usuario_actual)):
     return db.query(ClienteModel).all()
 
-@router.post("", response_model=Cliente, status_code=status.HTTP_201_CREATED, responses={400: {"model": Error}})
-def crear_cliente(cliente_in: ClienteInput, db: Session = Depends(get_db)):
+@router.post("", response_model=Cliente, status_code=status.HTTP_201_CREATED, responses={400: {"model": Error}, 401: {"model": Error}, 403: {"model": Error}})
+def crear_cliente(cliente_in: ClienteInput, db: Session = Depends(get_db), usuario: dict = Depends(requiere_operador)):
     cliente_existente = db.query(ClienteModel).filter(ClienteModel.email == cliente_in.email).first()
     if cliente_existente:
         raise HTTPException(
@@ -26,8 +27,8 @@ def crear_cliente(cliente_in: ClienteInput, db: Session = Depends(get_db)):
     db.refresh(nuevo_cliente)
     return nuevo_cliente
 
-@router.get("/{id}", response_model=Cliente, responses={404: {"model": Error}})
-def consultar_cliente(id: str, db: Session = Depends(get_db)):
+@router.get("/{id}", response_model=Cliente, responses={401: {"model": Error}, 404: {"model": Error}})
+def consultar_cliente(id: str, db: Session = Depends(get_db), usuario: dict = Depends(usuario_actual)):
     cliente = db.query(ClienteModel).filter(ClienteModel.id == id).first()
     if not cliente:
         raise HTTPException(

@@ -9,6 +9,13 @@ class ClienteModel(Base):
     nombre = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
 
+class UsuarioModel(Base):
+    __tablename__ = "usuarios"
+
+    username = Column(String, primary_key=True)
+    password_hash = Column(String, nullable=False)
+    rol = Column(String, nullable=False)
+
 class DespachoModel(Base):
     __tablename__ = "despachos"
 

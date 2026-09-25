@@ -49,6 +49,7 @@ services:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgrespassword@db:5432/despachos_db
       - PORT=8000
       - GRPC_FLOTA_HOST=grpc_flota:50051
+      - SECRET_KEY=${SECRET_KEY:-clave-desarrollo-cambiar-en-produccion}
     depends_on:
       db:
         condition: service_healthy

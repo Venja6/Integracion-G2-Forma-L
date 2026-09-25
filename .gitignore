@@ -5,3 +5,5 @@ venv
 API_Despachos/flota_pb2*.py
 API_Despachos/schemas_generated.py
 __pycache__/
+# Notas internas para la defensa
+SUSTENTACION.md

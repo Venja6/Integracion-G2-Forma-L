@@ -12,6 +12,29 @@ security:
   - BearerAuth: []
 
 paths:
+  /auth/token:
+    post:
+      summary: Obtener un token de acceso
+      description: >
+        Recibe usuario y contraseña y devuelve un JWT firmado que expira.
+        El token incluye el rol del usuario (operador o consulta).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Token emitido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
   /clientes:
     get:
       summary: Listar clientes
@@ -46,6 +69,10 @@ paths:
                 $ref: '#/components/schemas/Cliente'
         '400':
           $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
   /clientes/{id}:
     get:
@@ -64,6 +91,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cliente'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
@@ -103,6 +132,10 @@ paths:
                 $ref: '#/components/schemas/Despacho'
         '400':
           $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '409':
           description: Conflicto. No hay capacidad de carga disponible en el camión.
           content:
@@ -135,6 +168,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Despacho'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
@@ -155,6 +190,10 @@ paths:
           description: >
             Despacho revertido exitosamente (estado CANCELADO) y capacidad liberada en Flota.
             Es idempotente: revertir un despacho ya cancelado también retorna 204.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '409':
@@ -176,6 +215,9 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: >
+        Token obtenido en POST /v1/auth/token. Rol operador puede leer y modificar;
+        rol consulta solo puede leer.
 
   schemas:
     Cliente:
@@ -240,6 +282,37 @@ components:
           type: string
           example: "contacto@empresaabc.cl"
 
+    LoginInput:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "operador"
+        password:
+          type: string
+          format: password
+          example: "operador123"
+
+    Token:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Segundos hasta que el token expira.
+          example: 1800
+
     Error:
       type: object
       properties:
@@ -259,6 +332,12 @@ components:
             $ref: '#/components/schemas/Error'
     UnauthorizedError:
       description: No autenticado. Falla el token de seguridad.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenError:
+      description: Autenticado, pero el rol no tiene permiso para esta operación (solo el rol operador puede modificar).
       content:
         application/json:
           schema:
