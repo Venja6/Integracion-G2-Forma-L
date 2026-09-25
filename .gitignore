@@ -11,3 +11,6 @@ API_Despachos/schemas_generated.py
 __pycache__/
 # Notas internas para la defensa
 SUSTENTACION.md
+
+# Dependencias de Node
+node_modules/

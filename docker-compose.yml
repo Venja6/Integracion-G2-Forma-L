@@ -81,6 +81,19 @@ services:
       db_flota:
         condition: service_healthy
 
+  # Segundo cliente gRPC en Node.js. No parte con "docker compose up", se ejecuta a mano con
+  # docker compose run --rm cliente_node
+  cliente_node:
+    build:
+      context: ./cliente_node
+      additional_contexts:
+        flota_contrato: ./gRPC_Flota
+    profiles: ["herramientas"]
+    environment:
+      - GRPC_FLOTA_HOST=grpc_flota:50051
+    depends_on:
+      - grpc_flota
+
 volumes:
   despachos_postgres_data:
   flota_postgres_data:
