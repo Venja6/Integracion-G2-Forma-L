@@ -66,3 +66,21 @@ def buscar_disponibles(origen: str, destino: str, carga_minima_kg: float = 0.0):
     except grpc.RpcError as e:
         raise _traducir_error(e) from e
     return [(c.camion_id, c.capacidad_disponible_kg) for c in respuesta.camiones]
+
+
+def listar_flota():
+    """ListarFlota es server streaming, se recorre el stream y se arma la lista camion por camion"""
+    try:
+        return [
+            {
+                "camion_id": c.camion_id,
+                "rutas": [
+                    {"origen": r.origen, "destino": r.destino,
+                     "capacidad_total_kg": r.capacidad_total_kg, "capacidad_disponible_kg": r.capacidad_disponible_kg}
+                    for r in c.rutas
+                ],
+            }
+            for c in _stub.ListarFlota(flota_pb2.ListarFlotaRequest(), timeout=GRPC_TIMEOUT_SEGUNDOS)
+        ]
+    except grpc.RpcError as e:
+        raise _traducir_error(e) from e

@@ -1,12 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import List
 from auth import usuario_actual
-from schemas_generated import CamionDisponible, Error
+from schemas_generated import CamionDisponible, CamionFlota, Error
 import cache
 import flota_client
 from flota_client import FlotaNoDisponible
 
 router = APIRouter(prefix="/v1/camiones", tags=["Camiones"])
+
+
+@router.get("", response_model=List[CamionFlota], responses={401: {"model": Error}, 503: {"model": Error}})
+def listar_camiones(usuario: dict = Depends(usuario_actual)):
+    # Usa ListarFlota de Flota, que envia los camiones en streaming
+    try:
+        return flota_client.listar_flota()
+    except FlotaNoDisponible:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"codigo": "ERR_503", "mensaje": "El sistema de Flota no está disponible. Intente más tarde."}
+        )
 
 
 @router.get(
