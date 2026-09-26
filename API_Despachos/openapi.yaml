@@ -232,6 +232,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /camiones:
+    get:
+      summary: Listar la flota completa con sus rutas
+      description: >
+        Consulta a Flota vía gRPC (ListarFlota, server streaming) y devuelve todos los camiones
+        con la capacidad total y disponible en cada ruta.
+      responses:
+        '200':
+          description: Flota completa.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CamionFlota'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          description: El sistema interno de Flota no responde o está caído.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /camiones/disponibles:
     get:
       summary: Buscar camiones con capacidad en una ruta
@@ -399,6 +423,33 @@ components:
           type: string
         method:
           type: string
+
+    CapacidadRuta:
+      type: object
+      properties:
+        origen:
+          type: string
+          example: "Concepcion"
+        destino:
+          type: string
+          example: "Chillan"
+        capacidad_total_kg:
+          type: number
+          example: 5000
+        capacidad_disponible_kg:
+          type: number
+          example: 4000
+
+    CamionFlota:
+      type: object
+      properties:
+        camion_id:
+          type: string
+          example: "CAM-04"
+        rutas:
+          type: array
+          items:
+            $ref: '#/components/schemas/CapacidadRuta'
 
     CamionDisponible:
       type: object

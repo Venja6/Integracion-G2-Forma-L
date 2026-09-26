@@ -102,3 +102,10 @@ def test_idempotency_key_no_duplica_el_despacho(api, operador, flota, datos_desp
     assert otros_datos.status_code == 422
 
     api.delete(f"/despachos/{primero.json()['id']}", headers=operador)
+
+
+def test_listar_flota_completa(api, operador):
+    respuesta = api.get("/camiones", headers=operador)
+    assert respuesta.status_code == 200
+    validar_lista(respuesta.json(), "CamionFlota")
+    assert [c["camion_id"] for c in respuesta.json()] == ["CAM-01", "CAM-02", "CAM-03", "CAM-04", "CAM-05"]
