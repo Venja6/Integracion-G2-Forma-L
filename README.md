@@ -62,13 +62,16 @@ Una vez levantado el sistema, ingresa desde tu navegador a:
 ### B. Flujo Básico de Uso
 
 1. **Autenticación:**
-   * Obtén tu token JWT o credencial en `/v1/auth/login`.
-   * En Swagger UI, pulsa el botón **Authorize** e introduce el token (`Bearer <token>`).
+   * Obtén tu token JWT con `POST /v1/auth/token` usando uno de estos usuarios:
+     * `operador` / `operador123` (puede leer y modificar)
+     * `consulta` / `consulta123` (solo puede leer; si intenta modificar recibe 403)
+   * En Swagger UI, pulsa el botón **Authorize** e introduce el token.
 2. **Gestión de Clientes:**
    * Registra un cliente con `POST /v1/clientes`.
    * Lista los clientes existentes con `GET /v1/clientes`.
-3. **Consulta de Disponibilidad de Camiones:**
-   * Realiza una consulta con `GET /v1/camiones`.
+3. **Consulta de Camiones:**
+   * Lista la flota completa con `GET /v1/camiones`.
+   * Busca camiones con capacidad en una ruta con `GET /v1/camiones/disponibles?origen=Concepcion&destino=Chillan&carga_kg=1000`.
 4. **Registro de Despacho:**
    * Registra un despacho con `POST /v1/despachos`. La API verificará la capacidad en Flota por gRPC.
 5. **Reversión / Cancelación:**
@@ -109,7 +112,7 @@ Para evidenciar el comportamiento de la API REST ante la caída del servicio gRP
    docker stop flota_grpc
    ```
 2. Realiza un intento de despacho desde Swagger UI o cURL (`POST /v1/despachos`).
-3. Comprueba que la API devuelve un código de estado controlado (`503 Service Unavailable` o `504 Gateway Timeout`) con un mensaje estructurado en JSON y no colapsa.
+3. Comprueba que la API devuelve un código de estado controlado (`503 Service Unavailable`, en aproximadamente 2 s por el timeout) con un mensaje estructurado en JSON y no colapsa.
 4. Vuelve a iniciar el servicio:
    ```bash
    docker start flota_grpc
@@ -124,14 +127,31 @@ Para detener todos los servicios y liberar los puertos:
 docker compose down
 ```
 
-Para eliminar los contenedores y los volúmenes de datos asociados:
+Para eliminar los contenedores y los volúmenes de datos asociados (necesario si se actualiza el proyecto y cambiaron las tablas de las bases de datos):
 ```bash
 docker compose down -v
 ```
 
 ---
 
-## 9. Declaración de Integridad Académica y Asistentes de IA
+## 9. Experimentos
+
+Los experimentos de la Competencia 6 están en `experimentos/`, cada uno con su README (hipótesis, método, resultados y conclusiones):
+
+* `experimentos/timeout/`: efecto del timeout cuando Flota responde lento y reservas huérfanas (necesita el sistema levantado).
+* `experimentos/tamano_mensajes/`: tamaño y velocidad de Protobuf frente a JSON (no necesita Docker).
+
+```bash
+pip install -r experimentos/requirements.txt
+python experimentos/timeout/experimento_timeout.py con_mitigacion
+python experimentos/tamano_mensajes/experimento_tamano.py
+```
+
+Las decisiones de arquitectura están documentadas como ADR en `docs/adr/`.
+
+---
+
+## 10. Declaración de Integridad Académica y Asistentes de IA
 
 En cumplimiento con los requerimientos del encargo de Unidad 1:
 * **Herramientas utilizadas:** Asistentes de Inteligencia Artificial (Gemini / Claude) fueron utilizados como soporte para:
